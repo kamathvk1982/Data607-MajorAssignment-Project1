@@ -1,0 +1,160 @@
+---
+title: "Data607-MajorAssignment-Project1-Chess Tournament"
+author: "Vinayak Kamath"
+date: "2/8/2020"
+output: 
+  html_document:
+    df_print: paged
+  pdf_document:
+    extra_dependencies:
+    - geometry
+    - multicol
+    - multirow
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Loading the tidyverse readr/ggplot2/dplyr package:
+library(readr)
+library(tidyverse)
+library(dplyr)
+
+```
+
+
+In this project, you’re given a text file with chess tournament results where the information has some structure.  Your job is to create an R Markdown file that generates a .CSV file (that could for example be imported into a SQL database) with the following information for all of the players:    
+
+Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents 
+
+For the first player, the information would be: Gary Hua, ON, 6.0, 1794, 1605 
+1605 was calculated by using the pre-tournament opponents’ ratings of 1436, 1563, 1600, 1610, 1649, 1663, 1716, and dividing by the total number of games played.   
+
+If you have questions about the meaning of the data or the results, please post them on the discussion forum.  Data science, like chess, is a game of back and forth… 
+
+The chess rating system (invented by a Minnesota statistician named Arpad Elo) has been used in many other contexts, including assessing relative strength of employment candidates by human resource departments:   
+  
+   
+   
+   
+   
+  
+#### **Step:** Loading the raw tournament information file from Git Repository:  
+
+```{r}
+# Loading the tournamentinfo.txt:
+theUrl <- "https://raw.githubusercontent.com/kamathvk1982/Data607-MajorAssignment-Project1/master/tournamentinfo.txt"
+chess.tour.df <- readLines(theUrl)
+  
+# Sample rows from the dataset:
+head(chess.tour.df)
+
+
+#Cleanup the header by removing first 4 rows:
+chess.tour.df <- chess.tour.df[c(-1:-4, 0)]
+head(chess.tour.df)
+```  
+
+
+  
+  
+  
+#### **Step:** Create two data frames to capture the two lines of data for each player from the original frame. Every player information is in lines of three with the third line being the row delimiter:  
+
+```{r}
+#created empty objects:  
+data1.df <- c()
+data2.df <- c()
+
+#Run a loop to get the split:  
+k <- 1
+for (i in 1:length(chess.tour.df) ) {
+  if ( i == 1 | i%%3 == 1 )  {    data1.df[k] <- chess.tour.df[i]  }
+  else if (i == 2 | i%%3 == 2)  {      data2.df[k] <- chess.tour.df[i]    }
+  if (i%%3 == 0) { 
+    k <- k + 1
+    }
+}
+
+# Sample rows from the dataset:  
+head(data1.df)
+head(data2.df)
+```  
+  
+  
+  
+  
+  
+#### **Step:** We will now split each line of data into individual column based on the pipeline "|" delimiter:  
+
+```{r}
+# Splitting  with pattern as the delimiter "|" :
+data1.cols.df <- str_split(data1.df, pattern = fixed("|"), simplify = TRUE, n=11)
+data2.cols.df <- str_split(data2.df, pattern = fixed("|"), simplify = TRUE, n=11)
+
+#Trimming the values for values in all rows and columns:
+data1.cols.df  <- trimws(data1.cols.df )
+data2.cols.df  <- trimws(data2.cols.df )
+
+# Sample rows from the dataset:  
+head(data1.cols.df)
+head(data2.cols.df)
+```  
+  
+  
+  
+  
+  
+  
+#### **Step:** We will create the final data set having the merged data from the above two data sets with each row in this final data set representing a single player information:  
+  
+```{r}
+# Creating of an empty dataset with column names and number of rows as the length of final dataset:  
+final.dataset<-data.frame(id=character(nrow(data1.cols.df)), name=character(nrow(data1.cols.df)), state=character(nrow(data1.cols.df)), total.points=numeric(nrow(data1.cols.df)), pre.rating=numeric(nrow(data1.cols.df)), avg.pre.rating.oppo=numeric(nrow(data1.cols.df)), rd1=character(nrow(data1.cols.df)),rd2=character(nrow(data1.cols.df)), rd3=character(nrow(data1.cols.df)), rd4=character(nrow(data1.cols.df)), rd5=character(nrow(data1.cols.df)), rd6=character(nrow(data1.cols.df)), rd7=character(nrow(data1.cols.df)) )
+
+# Assigning valve to each column in the final dataset [except for average opponent rating, which we will calculate in next step]:    
+final.dataset$id <- trimws(data1.cols.df[, 1])
+final.dataset$name <- data1.cols.df[, 2]
+final.dataset$state <- data2.cols.df[, 1]
+final.dataset$total.points <-  as.double(data1.cols.df[, 3] )
+final.dataset$pre.rating  <- as.integer(  sub('P', '.', trimws(  substr(data2.cols.df[,2], regexpr('R:', data2.cols.df[,2] ) +2 , regexpr("->", data2.cols.df[,2])-1)  ) ))
+final.dataset$rd1 <- sub('[[:alpha:]]', '', data1.cols.df[,4])
+final.dataset$rd2 <- sub('[[:alpha:]]', '', data1.cols.df[,5])
+final.dataset$rd3 <- sub('[[:alpha:]]', '', data1.cols.df[,6])
+final.dataset$rd4 <- sub('[[:alpha:]]', '', data1.cols.df[,7])
+final.dataset$rd5 <- sub('[[:alpha:]]', '', data1.cols.df[,8])
+final.dataset$rd6 <- sub('[[:alpha:]]', '', data1.cols.df[,9])
+final.dataset$rd7 <- sub('[[:alpha:]]', '', data1.cols.df[,10])
+
+
+#Assigning valve to column avg.pre.rating.oppo:
+for (i in 1:nrow(data1.cols.df) ) {
+  
+  final.dataset$avg.pre.rating.oppo[i] <- as.integer( mean(  c(final.dataset$pre.rating[final.dataset$id == trimws(final.dataset$rd1[i])]   , final.dataset$pre.rating[final.dataset$id == trimws(final.dataset$rd2[i])]  , final.dataset$pre.rating[final.dataset$id == trimws(final.dataset$rd3[i])]  , final.dataset$pre.rating[final.dataset$id == trimws(final.dataset$rd4[i])]  , final.dataset$pre.rating[final.dataset$id == trimws(final.dataset$rd5[i])]  , final.dataset$pre.rating[final.dataset$id == trimws(final.dataset$rd6[i])]  , final.dataset$pre.rating[final.dataset$id == trimws(final.dataset$rd7[i])] ) , na.rm = TRUE ) )
+}
+
+
+# Sample rows from the dataset:  
+head(final.dataset)
+
+```  
+
+
+
+
+
+#### **Step:** Creating of the csv file with the required columns:  
+  
+```{r}
+#Creating the subset with required columns of Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents:
+final.csv.dataset <- subset(final.dataset, select= c(name, state, total.points, pre.rating,avg.pre.rating.oppo ))
+
+#Write into a csv file in current working directory
+getwd()
+write.csv(final.csv.dataset,'tournament_player_info.csv')
+
+```  
+ 
+--------------------------------------------------------------------------------
+
+\clearpage
